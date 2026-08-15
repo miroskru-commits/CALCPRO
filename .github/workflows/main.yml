@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Release APK
 
 on:
   push:
@@ -48,10 +48,28 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Fix Duplicate Kotlin Classes
+      - name: Configure Release Keystore
         run: |
           echo "android.enableJetifier=true" >> android/gradle.properties
+          keytool -genkeypair -v -keystore android/app/release.keystore -alias procalc -keyalg RSA -keysize 2048 -validity 10000 -storepass procalc123 -keypass procalc123 -dname "CN=PROCALC, OU=App, O=PROCALC, L=Moscow, S=Moscow, C=RU"
           cat << 'EOF' >> android/app/build.gradle
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('release.keystore')
+                      storePassword 'procalc123'
+                      keyAlias 'procalc'
+                      keyPassword 'procalc123'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }
+              }
+          }
 
           configurations.all {
               exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
@@ -59,14 +77,14 @@ jobs:
           }
           EOF
 
-      - name: Build Android APK
+      - name: Build Release APK
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
-      - name: Upload APK to Artifacts
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: CALCPRO-RuStore-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: CALCPRO-Release-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
