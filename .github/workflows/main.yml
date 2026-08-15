@@ -1,56 +1,57 @@
-name: Build Android APK for RuStore
+name: Build APK
 
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Скачиваем исходный код
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Настраиваем Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3. Настраиваем Java для сборки Android
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 4. Устанавливаем зависимости и собираем веб-часть
-      - name: Install Dependencies & Build Web
+      - name: Install & Build Web
         run: |
-          npm install
+          npm ci || npm install
           npm run build
 
-      # 5. Устанавливаем и инициализируем Capacitor Android
+      - name: Create Capacitor Config
+        run: |
+          cat << 'EOF' > capacitor.config.json
+          {
+            "appId": "com.calcpro.app",
+            "appName": "CALCPRO",
+            "webDir": "dist"
+          }
+          EOF
+
       - name: Setup Capacitor Android
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "PROCALC" "com.procalc.app" --web-dir="dist"
           npx cap add android
-          npx cap sync android
 
-      # 6. Компилируем Android APK
       - name: Build Android APK
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
-      # 7. Выгружаем готовый APK файл для скачивания
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PROCALC-RuStore-APK
+          name: CALCPRO-RuStore-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
